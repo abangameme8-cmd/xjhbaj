@@ -129,7 +129,7 @@ try {
             break;
 
         case 'get_menu':
-            $stmt = $conn->prepare('SELECT MenuID, ItemName, ItemDescription, Category, Price, Availability FROM MenuItem WHERE RestaurantID = ? ORDER BY Category, ItemName');
+            $stmt = $conn->prepare('SELECT MenuID, ItemName, ItemDescription, Category, Price, Availability FROM MenuItem WHERE RestaurantID = ? ORDER BY COALESCE(Category, "General"), ItemName');
             $stmt->bind_param('i', $restaurantId);
             $stmt->execute();
             $result = $stmt->get_result();
@@ -139,7 +139,7 @@ try {
                     'id' => $row['MenuID'],
                     'name' => $row['ItemName'],
                     'description' => $row['ItemDescription'],
-                    'category' => $row['Category'],
+                    'category' => $row['Category'] ?? 'General',
                     'price' => floatval($row['Price']),
                     'available' => boolval($row['Availability'])
                 ];
@@ -157,9 +157,15 @@ try {
             $data = json_decode(file_get_contents('php://input'), true);
             $name = $data['name'] ?? '';
             $description = $data['description'] ?? '';
-            $category = $data['category'] ?? '';
+            $category = $data['category'] ?? 'General';
             $price = floatval($data['price'] ?? 0);
             $available = boolval($data['available'] ?? true);
+
+            if (empty($name) || empty($description) || $price <= 0) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Name, description, and valid price are required']);
+                break;
+            }
 
             $stmt = $conn->prepare('INSERT INTO MenuItem (RestaurantID, ItemName, ItemDescription, Category, Price, Availability) VALUES (?, ?, ?, ?, ?, ?)');
             $stmt->bind_param('isssdi', $restaurantId, $name, $description, $category, $price, $available);
@@ -178,14 +184,56 @@ try {
             }
             $data = json_decode(file_get_contents('php://input'), true);
             $menuId = intval($data['menu_id'] ?? 0);
-            $name = $data['name'] ?? '';
-            $description = $data['description'] ?? '';
-            $category = $data['category'] ?? '';
-            $price = floatval($data['price'] ?? 0);
-            $available = boolval($data['available'] ?? true);
 
-            $stmt = $conn->prepare('UPDATE MenuItem SET ItemName = ?, ItemDescription = ?, Category = ?, Price = ?, Availability = ? WHERE MenuID = ? AND RestaurantID = ?');
-            $stmt->bind_param('sssdiid', $name, $description, $category, $price, $available, $menuId, $restaurantId);
+            if ($menuId <= 0) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Valid menu_id is required']);
+                break;
+            }
+
+            $updateFields = [];
+            $params = [];
+            $types = '';
+
+            if (isset($data['name'])) {
+                $updateFields[] = 'ItemName = ?';
+                $params[] = $data['name'];
+                $types .= 's';
+            }
+            if (isset($data['description'])) {
+                $updateFields[] = 'ItemDescription = ?';
+                $params[] = $data['description'];
+                $types .= 's';
+            }
+            if (isset($data['category'])) {
+                $updateFields[] = 'Category = ?';
+                $params[] = $data['category'];
+                $types .= 's';
+            }
+            if (isset($data['price'])) {
+                $updateFields[] = 'Price = ?';
+                $params[] = floatval($data['price']);
+                $types .= 'd';
+            }
+            if (isset($data['available'])) {
+                $updateFields[] = 'Availability = ?';
+                $params[] = boolval($data['available']);
+                $types .= 'i';
+            }
+
+            if (empty($updateFields)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'No fields to update']);
+                break;
+            }
+
+            $params[] = $menuId;
+            $params[] = $restaurantId;
+            $types .= 'ii';
+
+            $sql = 'UPDATE MenuItem SET ' . implode(', ', $updateFields) . ' WHERE MenuID = ? AND RestaurantID = ?';
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param($types, ...$params);
             $stmt->execute();
             $stmt->close();
 

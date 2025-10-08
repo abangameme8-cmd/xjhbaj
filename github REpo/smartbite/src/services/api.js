@@ -162,111 +162,65 @@ export const restaurantsAPI = {
 
 export const menuAPI = {
   getMenuItems: async (restaurantId) => {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_SUPABASE_ANON_KEY;
+    const response = await serveSoftAPI.request('api_manager.php?action=get_menu');
 
-    const response = await fetch(`${supabaseUrl}/rest/v1/menu_items?restaurant_id=eq.${restaurantId}&order=category.asc,item_name.asc`, {
-      headers: {
-        'apikey': supabaseKey,
-        'Authorization': `Bearer ${supabaseKey}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch menu items');
-    }
-
-    const items = await response.json();
-    return { data: items };
+    return {
+      data: response.data.menu.map(item => ({
+        id: item.id,
+        restaurant_id: restaurantId,
+        item_name: item.name,
+        item_description: item.description,
+        item_price: item.price,
+        category: item.category,
+        is_available: item.available,
+        prep_time: 15,
+        image: 'https://images.pexels.com/photos/958545/pexels-photo-958545.jpeg'
+      }))
+    };
   },
 
   createMenuItem: async (data) => {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_SUPABASE_ANON_KEY;
-
-    const response = await fetch(`${supabaseUrl}/rest/v1/menu_items`, {
+    const response = await serveSoftAPI.request('api_manager.php', {
       method: 'POST',
-      headers: {
-        'apikey': supabaseKey,
-        'Authorization': `Bearer ${supabaseKey}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=representation'
-      },
       body: JSON.stringify({
-        restaurant_id: data.restaurant_id,
-        item_name: data.item_name,
-        item_description: data.item_description,
-        item_price: data.item_price,
+        action: 'add_menu_item',
+        name: data.item_name,
+        description: data.item_description,
         category: data.category,
-        prep_time: data.prep_time,
-        image: data.image,
-        is_available: true
+        price: data.item_price,
+        available: true
       })
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to create menu item');
-    }
-
-    const items = await response.json();
-    return { data: { itemId: items[0]?.id } };
+    return { data: { itemId: response.data.menu_id } };
   },
 
   updateMenuItem: async (id, data) => {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_SUPABASE_ANON_KEY;
-
-    const updateData = {
-      updated_at: new Date().toISOString()
+    const updatePayload = {
+      action: 'update_menu_item',
+      menu_id: id
     };
 
-    if (data.item_name !== undefined) updateData.item_name = data.item_name;
-    if (data.item_description !== undefined) updateData.item_description = data.item_description;
-    if (data.item_price !== undefined) updateData.item_price = data.item_price;
-    if (data.category !== undefined) updateData.category = data.category;
-    if (data.prep_time !== undefined) updateData.prep_time = data.prep_time;
-    if (data.image !== undefined) updateData.image = data.image;
-    if (data.is_available !== undefined) updateData.is_available = data.is_available;
+    if (data.item_name !== undefined) updatePayload.name = data.item_name;
+    if (data.item_description !== undefined) updatePayload.description = data.item_description;
+    if (data.item_price !== undefined) updatePayload.price = data.item_price;
+    if (data.category !== undefined) updatePayload.category = data.category;
+    if (data.is_available !== undefined) updatePayload.available = data.is_available;
 
-    const response = await fetch(`${supabaseUrl}/rest/v1/menu_items?id=eq.${id}`, {
-      method: 'PATCH',
-      headers: {
-        'apikey': supabaseKey,
-        'Authorization': `Bearer ${supabaseKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(updateData)
+    return serveSoftAPI.request('api_manager.php', {
+      method: 'POST',
+      body: JSON.stringify(updatePayload)
     });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to update menu item');
-    }
-
-    return { data: { success: true } };
   },
 
   deleteMenuItem: async (id) => {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_SUPABASE_ANON_KEY;
-
-    const response = await fetch(`${supabaseUrl}/rest/v1/menu_items?id=eq.${id}`, {
-      method: 'DELETE',
-      headers: {
-        'apikey': supabaseKey,
-        'Authorization': `Bearer ${supabaseKey}`,
-        'Content-Type': 'application/json'
-      }
+    return serveSoftAPI.request('api_manager.php', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'delete_menu_item',
+        menu_id: id
+      })
     });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to delete menu item');
-    }
-
-    return { data: { success: true } };
   }
 };
 
