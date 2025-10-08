@@ -22,7 +22,7 @@ export default function ManageMenu() {
   });
 
   useEffect(() => {
-    if (user?.role === 'owner') {
+    if (user?.role === 'owner' || user?.role === 'manager') {
       fetchMyRestaurant();
     }
   }, [user]);
@@ -111,8 +111,8 @@ export default function ManageMenu() {
       <Layout title="Manage Menu">
         <div className="text-center py-12">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Restaurant not found</h2>
-          <p className="text-gray-600 mb-6">Please create your restaurant profile first.</p>
-          <Link to="/owner" className="text-orange-600 hover:text-orange-700">
+          <p className="text-gray-600 mb-6">{user?.role === 'owner' ? 'Please create your restaurant profile first.' : 'No restaurant assigned to your manager account.'}</p>
+          <Link to={user?.role === 'manager' ? '/manager' : '/owner'} className="text-orange-600 hover:text-orange-700">
             ← Back to dashboard
           </Link>
         </div>
@@ -135,7 +135,7 @@ export default function ManageMenu() {
       {/* Back Button */}
       <div className="mb-6">
         <Link
-          to="/owner"
+          to={user?.role === 'manager' ? '/manager' : '/owner'}
           className="inline-flex items-center text-orange-600 hover:text-orange-700 font-medium"
         >
           <ArrowLeft className="h-5 w-5 mr-2" />
